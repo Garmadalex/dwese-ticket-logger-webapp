@@ -1,32 +1,59 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
-<head th:replace="fragments/head :: head ('Ticket Logger - Insertar/Actualizar Comunidad Autónoma')"></head>
+<head th:replace="~{fragments/head :: head('Ticket Logger - Listado de Comunidades Autónomas')}"></head>
 <body>
+
 <!-- Incluir el fragmento del header -->
-<header th:replace="fragments/header :: header"></header>
+<header th:replace="~{fragments/header :: header}"></header>
+
 <main class="container mt-5">
-    <h1 th:text="${region.id == null ? 'Add New Region' : 'Edit Region'}"></h1>
+    <h1 th:text="#{msg.region.title}"></h1>
+
     <!-- Muestra un mensaje de error si hay algún problema -->
     <div th:if="${errorMessage}" class="alert alert-danger">
         <p th:text="${errorMessage}"></p>
     </div>
-    <form th:action="${region.id == null} ? @{/regions/insert} :@{/regions/update}"
-          th:object="${region}" method="post" class="mt-4">
-        <input type="hidden" th:field="*{id}" />
-        <div class="mb-3">
-            <label for="code" class="form-label">Code:</label>
-            <input type="text" th:field="*{code}" id="code" class="formcontrol" required />
-        </div>
-        <div class="mb-3">
-            <label for="name" class="form-label">Name:</label>
-            <input type="text" th:field="*{name}" id="name" class="formcontrol" required />
-        </div>
-        <button type="submit" class="btn btn-primary" th:text="${region.id ==null ? 'Create' : 'Update'}"></button>
-    </form>
-    <!-- Volver a la lista de regiones -->
-    <a href="#" th:href="@{/regions}" class="btn btn-secondary mt-3">Back to List</a>
+
+    <!-- Muestra la lista de regiones en una tabla -->
+    <table class="table table-bordered mt-3">
+        <thead>
+        <tr>
+            <th th:text="#{msg.region.id}"></th>
+            <th th:text="#{msg.region.code}"></th>
+            <th th:text="#{msg.region.name}"></th>
+            <th th:text="#{msg.region.actions}"></th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="region : ${listRegions}">
+            <td th:text="${region.id}"></td>
+            <td th:text="${region.code}"></td>
+            <td th:text="${region.name}"></td>
+            <td>
+                <!-- Botón para editar -->
+                <a th:href="@{/regions/edit(id=${region.id})}" class="btn btn-primary btn-sm" th:text="#{msg.region.edit}"></a>
+                <!-- Botón para eliminar -->
+                <form th:action="@{/regions/delete}" method="post" class="d-inline">
+                    <input type="hidden" name="id" th:value="${region.id}"/>
+                    <!-- El texto traducido va en data-confirm: Thymeleaf no deja meter mensajes dentro de onclick -->
+                    <button type="submit" class="btn btn-danger btn-sm"
+                            th:attr="data-confirm=#{msg.region.confirm}"
+                            onclick="return confirm(this.dataset.confirm);"
+                            th:text="#{msg.region.delete}"></button>
+                </form>
+            </td>
+        </tr>
+        </tbody>
+    </table>
+
+    <!-- Botón para añadir una nueva región -->
+    <a th:href="@{/regions/new}" class="btn btn-success mt-3" th:text="#{msg.region.add}"></a>
+    <!-- Volver a la página principal -->
+    <a href="#" th:href="@{/}" class="btn btn-secondary mt-3" th:text="#{msg.back}"></a>
 </main>
+
 <!-- Incluir el fragmento del footer -->
-<footer th:replace="fragments/footer :: footer"></footer>
+<footer th:replace="~{fragments/footer :: footer}"></footer>
+
 </body>
 </html>
