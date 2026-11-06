@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="fragments/head :: head('Ticket Logger - Inicio')"></head>
+<body>
+<!-- Incluir el fragmento del header -->
+<header th:replace="fragments/header :: header"></header>
+
+<main class="container mt-5">
+    <div class="p-5 mb-4 bg-light rounded-3 shadow-sm">
+        <div class="container-fluid py-5">
+            <h1 class="display-5 fw-bold">Bienvenido a Ticket Logger</h1>
+            <p class="col-md-8 fs-4">Aplicación web desarrollada con Spring Boot, Spring MVC y Thymeleaf para la gestión de regiones y tickets.</p>
+            <a class="btn btn-primary btn-lg mt-3" th:href="@{/regions}" role="button">Gestionar Regiones</a>
+        </div>
+    </div>
+</main>
+
+<!-- Incluir el fragmento del footer -->
+<footer th:replace="fragments/footer :: footer"></footer>
+</body>
+</html>
