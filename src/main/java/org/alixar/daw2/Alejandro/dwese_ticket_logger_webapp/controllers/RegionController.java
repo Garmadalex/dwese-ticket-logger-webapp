@@ -3,6 +3,7 @@ package org.alixar.daw2.Alejandro.dwese_ticket_logger_webapp.controllers;
 import jakarta.validation.Valid;
 import org.alixar.daw2.Alejandro.dwese_ticket_logger_webapp.dao.RegionDAO;
 import org.alixar.daw2.Alejandro.dwese_ticket_logger_webapp.entities.Region;
+import org.alixar.daw2.Alejandro.dwese_ticket_logger_webapp.service.FileStorageService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,6 +12,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import org.springframework.dao.DataAccessException;
 
@@ -95,8 +97,8 @@ public class RegionController {
      * @return Redirección a la lista de regiones.
      */
     @PostMapping("/insert")
-    public String insertRegion(@Valid @ModelAttribute("region") Region region,
-                               BindingResult result, RedirectAttributes redirectAttributes, Locale locale) {
+    public String insertRegion(@Valid @ModelAttribute("region") Region region, BindingResult result, @RequestParam("imageFile") MultipartFile imageFile,
+                               RedirectAttributes redirectAttributes, Locale locale, Model model) {
         logger.info("Insertando nueva región con código {}", region.getCode());
         try {
             if (result.hasErrors()) {
@@ -108,6 +110,16 @@ public class RegionController {
                 String errorMessage = messageSource.getMessage("msg.regioncontroller.insert.codeExist", null, locale);
                 redirectAttributes.addFlashAttribute("errorMessage", errorMessage);
                 return "redirect:/regions/new";
+            }
+            if (!imageFile.isEmpty()) {
+                String fileName = fileStorageService.saveFile(imageFile);
+                if (fileName != null) {
+                    region.setImage(fileName);
+                } else {
+                    redirectAttributes.addFlashAttribute("errorMessage",
+                            messageSource.getMessage("msg.region-form.image.invalid", null, locale));
+                    return "redirect:/regions";
+                }
             }
             regionDAO.insertRegion(region);
             logger.info("Región {} insertada con éxito.", region.getCode());
@@ -128,7 +140,7 @@ public class RegionController {
      */
     @PostMapping("/update")
     public String updateRegion(@Valid @ModelAttribute("region") Region region,
-                               BindingResult result, RedirectAttributes redirectAttributes, Locale locale) {
+                               BindingResult result, @RequestParam("imageFile") MultipartFile imageFile,RedirectAttributes redirectAttributes, Locale locale) {
         logger.info("Actualizando región con ID {}", region.getId());
         try {
             if (result.hasErrors()) {
@@ -141,6 +153,16 @@ public class RegionController {
                 String errorMessage = messageSource.getMessage("msg.regioncontroller.update.codeExist", null, locale);
                 redirectAttributes.addFlashAttribute("errorMessage", errorMessage);
                 return "redirect:/regions/edit?id=" + region.getId();
+            }
+            if (!imageFile.isEmpty()) {
+                String fileName = fileStorageService.saveFile(imageFile);
+                if (fileName != null) {
+                    region.setImage(fileName);
+                } else {
+                    redirectAttributes.addFlashAttribute("errorMessage",
+                            messageSource.getMessage("msg.region-form.image.invalid", null, locale));
+                    return "redirect:/regions";
+                }
             }
             regionDAO.updateRegion(region);
             logger.info("Región con ID {} actualizada con éxito.", region.getId());
@@ -163,7 +185,13 @@ public class RegionController {
     public String deleteRegion(@RequestParam("id") int id, RedirectAttributes redirectAttributes) {
         logger.info("Eliminando región con ID {}", id);
         try {
+            Region region = regionDAO.getRegionById(id);   // cargar antes de borrar
             regionDAO.deleteRegion(id);
+
+            // Eliminar la imagen asociada, si existe
+            if (region.getImage() != null && !region.getImage().isEmpty()) {
+                fileStorageService.deleteFile(region.getImage());
+            }
             logger.info("Región con ID {} eliminada con éxito.", id);
         } catch (DataAccessException e) {
             logger.error("Error al eliminar la región con ID {}: {}", id, e.getMessage());
@@ -173,4 +201,8 @@ public class RegionController {
     }
     @Autowired
     private MessageSource messageSource;
+
+    @Autowired
+    private FileStorageService fileStorageService;
+
 }

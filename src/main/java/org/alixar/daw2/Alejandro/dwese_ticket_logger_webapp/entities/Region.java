@@ -48,6 +48,8 @@ public class Region {
     @Column(name = "name", nullable = false, length = 100) // Define la columnacorrespondiente en la tabla.
     private String name;
 
+    @Column(name = "image", length = 255)
+    private String image;
 
     // Una región puede tener muchas provincias.
     @OneToMany(mappedBy = "region", cascade = CascadeType.ALL, fetch =

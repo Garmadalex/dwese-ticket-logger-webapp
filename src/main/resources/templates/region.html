@@ -42,6 +42,14 @@
                             th:text="#{msg.region.delete}"></button>
                 </form>
             </td>
+            <!-- Mostrar la imagen si existe -->
+            <td>
+                <img th:if="${region.image != null}"
+                     th:src="@{'/uploads/' + ${ region.image}}"
+                     alt="Imagen de la región"
+                     style="width: 100px; height: 100px; object-fit: cover;" />
+                <span th:if="${ region.image == null}" th:text="#{msg.region.noImage}"></span>
+            </td>
         </tr>
         </tbody>
     </table>
