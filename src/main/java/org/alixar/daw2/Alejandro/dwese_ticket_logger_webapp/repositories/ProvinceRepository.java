@@ -1,4 +1,4 @@
-package org.alixar.daw2.Alejandro.dwese_ticket_logger_webapp.dao;
+package org.alixar.daw2.Alejandro.dwese_ticket_logger_webapp.repositories;
 
 import java.util.List;
 import org.alixar.daw2.Alejandro.dwese_ticket_logger_webapp.entities.Province;
