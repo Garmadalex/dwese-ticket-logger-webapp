@@ -1,13 +1,14 @@
 package org.alixar.daw2.Alejandro.dwese_ticket_logger_webapp.controllers;
 
 import jakarta.validation.Valid;
-import org.alixar.daw2.Alejandro.dwese_ticket_logger_webapp.dao.RegionDAO;
+import org.alixar.daw2.Alejandro.dwese_ticket_logger_webapp.repositories.RegionRepository;
 import org.alixar.daw2.Alejandro.dwese_ticket_logger_webapp.entities.Region;
 import org.alixar.daw2.Alejandro.dwese_ticket_logger_webapp.service.FileStorageService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.MessageSource;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
@@ -16,9 +17,9 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import org.springframework.dao.DataAccessException;
 
-import java.sql.SQLException;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 
 /**
  * Controlador que maneja las operaciones CRUD para la entidad `Region`.
@@ -27,89 +28,75 @@ import java.util.Locale;
 @Controller
 @RequestMapping("/regions")
 public class RegionController {
+
     private static final Logger logger = LoggerFactory.getLogger(RegionController.class);
-    // DAO para gestionar las operaciones de las regiones en la base de datos
-    @Autowired
-    private RegionDAO regionDAO;
-    /**
-     * Lista todas las regiones y las pasa como atributo al modelo para que sean
-     * accesibles en la vista `region.html`.
-     *
-     * @param model Objeto del modelo para pasar datos a la vista.
-     * @return El nombre de la plantilla Thymeleaf para renderizar la lista de
-    regiones.
-     */
+
+    private final RegionRepository regionRepository;
+    private final MessageSource messageSource;
+    private final FileStorageService fileStorageService;
+
+    public RegionController(RegionRepository regionRepository, MessageSource messageSource,
+                            FileStorageService fileStorageService) {
+        this.regionRepository = regionRepository;
+        this.messageSource = messageSource;
+        this.fileStorageService = fileStorageService;
+    }
+
     @GetMapping
-    public String listRegions(Model model) {
+    public String listRegions(Model model, Locale locale) {
         logger.info("Solicitando la lista de todas las regiones...");
         List<Region> listRegions = null;
         try {
-            listRegions = regionDAO.listAllRegions();
+            listRegions = regionRepository.findAll();
             logger.info("Se han cargado {} regiones.", listRegions.size());
         } catch (DataAccessException e) {
             logger.error("Error al listar las regiones: {}", e.getMessage());
             model.addAttribute("errorMessage", "Error al listar las regiones.");
         }
-        model.addAttribute("listRegions", listRegions); // Pasar la lista deregiones al modelo
-        return "region"; // Nombre de la plantilla Thymeleaf a renderizar
+        model.addAttribute("listRegions", listRegions);
+        return "region";
     }
-    /**
-     * Muestra el formulario para crear una nueva región.
-     *
-     * @param model Modelo para pasar datos a la vista.
-     * @return El nombre de la plantilla Thymeleaf para el formulario.
-     */
+
     @GetMapping("/new")
     public String showNewForm(Model model) {
         logger.info("Mostrando formulario para nueva región.");
-        model.addAttribute("region", new Region()); // Crear un nuevo objeto Region
-        return "region-form"; // Nombre de la plantilla Thymeleaf para elformulario
+        model.addAttribute("region", new Region());
+        return "region-form";
     }
-    /**
-     * Muestra el formulario para editar una región existente.
-     *
-     * @param id ID de la región a editar.
-     * @param model Modelo para pasar datos a la vista.
-     * @return El nombre de la plantilla Thymeleaf para el formulario.
-     */
+
     @GetMapping("/edit")
-    public String showEditForm(@RequestParam("id") int id, Model model) {
+    public String showEditForm(@RequestParam("id") Long id, Model model,
+                               RedirectAttributes redirectAttributes, Locale locale) {
         logger.info("Mostrando formulario de edición para la región con ID {}", id);
-        Region region = null;
         try {
-            region = regionDAO.getRegionById(id);
-            if (region == null) {
+            Optional<Region> region = regionRepository.findById(id);
+            if (region.isEmpty()) {
                 logger.warn("No se encontró la región con ID {}", id);
+                redirectAttributes.addFlashAttribute("errorMessage", "No se encontró la región.");
+                return "redirect:/regions";
             }
+            model.addAttribute("region", region.get());
         } catch (DataAccessException e) {
-            logger.error("Error al obtener la región con ID {}: {}", id,
-                    e.getMessage());
-            model.addAttribute("errorMessage", "Error al obtener la región.");
+            logger.error("Error al obtener la región con ID {}: {}", id, e.getMessage());
+            redirectAttributes.addFlashAttribute("errorMessage", "Error al obtener la región.");
+            return "redirect:/regions";
         }
-        model.addAttribute("region", region);
-        return "region-form"; // Nombre de la plantilla Thymeleaf para el formulario
+        return "region-form";
     }
-    /**
-     * Inserta una nueva región en la base de datos.
-     *
-     * @param region Objeto que contiene los datos del formulario.
-     * @param redirectAttributes Atributos para mensajes flash de redirección.
-     * @return Redirección a la lista de regiones.
-     */
+
     @PostMapping("/insert")
-    public String insertRegion(@Valid @ModelAttribute("region") Region region, BindingResult result, @RequestParam("imageFile") MultipartFile imageFile,
-                               RedirectAttributes redirectAttributes, Locale locale, Model model) {
+    public String insertRegion(@Valid @ModelAttribute("region") Region region, BindingResult result,
+                               @RequestParam("imageFile") MultipartFile imageFile,
+                               RedirectAttributes redirectAttributes, Locale locale) {
         logger.info("Insertando nueva región con código {}", region.getCode());
         try {
             if (result.hasErrors()) {
-                return "region-form"; // Devuelve el formulario para mostrar loserrores de validación
+                return "region-form";
             }
-            if (regionDAO.existsRegionByCode(region.getCode())) {
-                logger.warn("El código de la región {} ya existe.",
-                        region.getCode());
-                String errorMessage = messageSource.getMessage("msg.regioncontroller.insert.codeExist", null, locale);
-                redirectAttributes.addFlashAttribute("errorMessage", errorMessage);
-                return "redirect:/regions/new";
+            if (regionRepository.existsRegionByCode(region.getCode())) {
+                logger.warn("El código de la región {} ya existe.", region.getCode());
+                result.rejectValue("code", "msg.regioncontroller.insert.codeExist");
+                return "region-form";
             }
             if (!imageFile.isEmpty()) {
                 String fileName = fileStorageService.saveFile(imageFile);
@@ -121,38 +108,29 @@ public class RegionController {
                     return "redirect:/regions";
                 }
             }
-            regionDAO.insertRegion(region);
+            regionRepository.save(region);
             logger.info("Región {} insertada con éxito.", region.getCode());
         } catch (DataAccessException e) {
-            logger.error("Error al insertar la región {}: {}", region.getCode(),
-                    e.getMessage());
-            String errorMessage = messageSource.getMessage("msg.regioncontroller.insert.error", null, locale);
-            redirectAttributes.addFlashAttribute("errorMessage", errorMessage);
+            logger.error("Error al insertar la región {}: {}", region.getCode(), e.getMessage());
+            redirectAttributes.addFlashAttribute("errorMessage",
+                    messageSource.getMessage("msg.regioncontroller.insert.error", null, locale));
         }
-        return "redirect:/regions"; // Redirigir a la lista de regiones
+        return "redirect:/regions";
     }
-    /**
-     * Actualiza una región existente en la base de datos.
-     *
-     * @param region Objeto que contiene los datos del formulario.
-     * @param redirectAttributes Atributos para mensajes flash de redirección.
-     * @return Redirección a la lista de regiones.
-     */
+
     @PostMapping("/update")
-    public String updateRegion(@Valid @ModelAttribute("region") Region region,
-                               BindingResult result, @RequestParam("imageFile") MultipartFile imageFile,RedirectAttributes redirectAttributes, Locale locale) {
+    public String updateRegion(@Valid @ModelAttribute("region") Region region, BindingResult result,
+                               @RequestParam("imageFile") MultipartFile imageFile,
+                               RedirectAttributes redirectAttributes, Locale locale) {
         logger.info("Actualizando región con ID {}", region.getId());
         try {
             if (result.hasErrors()) {
-                return "region-form"; // Devuelve el formulario para mostrar loserrores de validación
+                return "region-form";
             }
-            if (regionDAO.existsRegionByCodeAndNotId(region.getCode(),
-                    region.getId())) {
-                logger.warn("El código de la región {} ya existe para otra región.",
-                        region.getCode());
-                String errorMessage = messageSource.getMessage("msg.regioncontroller.update.codeExist", null, locale);
-                redirectAttributes.addFlashAttribute("errorMessage", errorMessage);
-                return "redirect:/regions/edit?id=" + region.getId();
+            if (regionRepository.existsRegionByCodeAndNotId(region.getCode(), region.getId())) {
+                logger.warn("El código de la región {} ya existe para otra región.", region.getCode());
+                result.rejectValue("code", "msg.regioncontroller.update.codeExist");
+                return "region-form";
             }
             if (!imageFile.isEmpty()) {
                 String fileName = fileStorageService.saveFile(imageFile);
@@ -164,45 +142,40 @@ public class RegionController {
                     return "redirect:/regions";
                 }
             }
-            regionDAO.updateRegion(region);
+            regionRepository.save(region);
             logger.info("Región con ID {} actualizada con éxito.", region.getId());
         } catch (DataAccessException e) {
-            logger.error("Error al actualizar la región con ID {}: {}",
-                    region.getId(), e.getMessage());
-            String errorMessage = messageSource.getMessage("msg.regioncontroller.update.error", null, locale);
-            redirectAttributes.addFlashAttribute("errorMessage", errorMessage);
+            logger.error("Error al actualizar la región con ID {}: {}", region.getId(), e.getMessage());
+            redirectAttributes.addFlashAttribute("errorMessage",
+                    messageSource.getMessage("msg.regioncontroller.update.error", null, locale));
         }
-        return "redirect:/regions"; // Redirigir a la lista de regiones
+        return "redirect:/regions";
     }
-    /**
-     * Elimina una región de la base de datos.
-     *
-     * @param id ID de la región a eliminar.
-     * @param redirectAttributes Atributos para mensajes flash de redirección.
-     * @return Redirección a la lista de regiones.
-     */
+
     @PostMapping("/delete")
-    public String deleteRegion(@RequestParam("id") int id, RedirectAttributes redirectAttributes) {
+    public String deleteRegion(@RequestParam("id") Long id, RedirectAttributes redirectAttributes, Locale locale) {
         logger.info("Eliminando región con ID {}", id);
         try {
-            Region region = regionDAO.getRegionById(id);   // cargar antes de borrar
-            regionDAO.deleteRegion(id);
-
-            // Eliminar la imagen asociada, si existe
-            if (region.getImage() != null && !region.getImage().isEmpty()) {
-                fileStorageService.deleteFile(region.getImage());
+            Optional<Region> regionOpt = regionRepository.findById(id);
+            if (regionOpt.isPresent()) {
+                String image = regionOpt.get().getImage();
+                regionRepository.deleteById(id);
+                // La imagen se borra solo después de borrar la región con éxito
+                if (image != null && !image.isEmpty()) {
+                    fileStorageService.deleteFile(image);
+                }
+                logger.info("Región con ID {} eliminada con éxito.", id);
+            } else {
+                logger.warn("No se encontró la región con ID {} para eliminar.", id);
             }
-            logger.info("Región con ID {} eliminada con éxito.", id);
+        } catch (DataIntegrityViolationException e) {
+            // Una región con provincias no se puede borrar por la clave ajena
+            logger.warn("No se puede eliminar la región con ID {}: tiene provincias asociadas.", id);
+            redirectAttributes.addFlashAttribute("errorMessage", "No se puede eliminar una región que tiene provincias.");
         } catch (DataAccessException e) {
             logger.error("Error al eliminar la región con ID {}: {}", id, e.getMessage());
             redirectAttributes.addFlashAttribute("errorMessage", "Error al eliminar la región.");
         }
-        return "redirect:/regions"; // Redirigir a la lista de regiones
+        return "redirect:/regions";
     }
-    @Autowired
-    private MessageSource messageSource;
-
-    @Autowired
-    private FileStorageService fileStorageService;
-
 }

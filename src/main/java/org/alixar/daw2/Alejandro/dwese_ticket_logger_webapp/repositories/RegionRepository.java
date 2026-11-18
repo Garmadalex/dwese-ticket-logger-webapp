@@ -1,14 +1,15 @@
 package org.alixar.daw2.Alejandro.dwese_ticket_logger_webapp.repositories;
 
 import org.alixar.daw2.Alejandro.dwese_ticket_logger_webapp.entities.Region;
-import java.util.List;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
-public interface RegionDAO {
-    List<Region> listAllRegions();
-    void insertRegion(Region region);
-    void updateRegion(Region region);
-    void deleteRegion(long id);
-    Region getRegionById(long id);
+public interface RegionRepository extends JpaRepository<Region, Long> {
+
+
     boolean existsRegionByCode(String code);
-    boolean existsRegionByCodeAndNotId(String code, long id);
+
+    @Query("SELECT COUNT(r) > 0 FROM Region r WHERE UPPER(r.code) = UPPER(:code) AND r.id != :id")
+    boolean existsRegionByCodeAndNotId(@Param("code") String code, @Param("id") Long id);
 }
