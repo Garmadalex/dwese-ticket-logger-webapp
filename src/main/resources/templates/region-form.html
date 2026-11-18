@@ -1,55 +1,59 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
-<head th:replace="~{fragments/head :: head('Ticket Logger - Listado de Comunidades Autónomas')}"></head>
+<head th:replace="~{fragments/head :: head('Ticket Logger - Comunidad Autónoma')}"></head>
 <body>
 
 <!-- Incluir el fragmento del header -->
 <header th:replace="~{fragments/header :: header}"></header>
 
 <main class="container mt-5">
-    <h1 th:text="#{msg.region.title}"></h1>
+    <h1 th:text="${region.id == null} ? #{msg.region-form.add} : #{msg.region-form.edit}"></h1>
 
     <!-- Muestra un mensaje de error si hay algún problema -->
     <div th:if="${errorMessage}" class="alert alert-danger">
         <p th:text="${errorMessage}"></p>
     </div>
 
-    <!-- Muestra la lista de regiones en una tabla -->
-    <table class="table table-bordered mt-3">
-        <thead>
-        <tr>
-            <th th:text="#{msg.region.id}"></th>
-            <th th:text="#{msg.region.code}"></th>
-            <th th:text="#{msg.region.name}"></th>
-            <th th:text="#{msg.region.actions}"></th>
-        </tr>
-        </thead>
-        <tbody>
-        <tr th:each="region : ${listRegions}">
-            <td th:text="${region.id}"></td>
-            <td th:text="${region.code}"></td>
-            <td th:text="${region.name}"></td>
-            <td>
-                <!-- Botón para editar -->
-                <a th:href="@{/regions/edit(id=${region.id})}" class="btn btn-primary btn-sm" th:text="#{msg.region.edit}"></a>
-                <!-- Botón para eliminar -->
-                <form th:action="@{/regions/delete}" method="post" class="d-inline">
-                    <input type="hidden" name="id" th:value="${region.id}"/>
-                    <!-- El texto traducido va en data-confirm: Thymeleaf no deja meter mensajes dentro de onclick -->
-                    <button type="submit" class="btn btn-danger btn-sm"
-                            th:attr="data-confirm=#{msg.region.confirm}"
-                            onclick="return confirm(this.dataset.confirm);"
-                            th:text="#{msg.region.delete}"></button>
-                </form>
-            </td>
-        </tr>
-        </tbody>
-    </table>
+    <!-- Si el id es null se inserta; si no, se actualiza -->
+    <form th:action="${region.id == null} ? @{/regions/insert} : @{/regions/update}"
+          th:object="${region}" method="post" enctype="multipart/form-data" class="mt-3">
 
-    <!-- Botón para añadir una nueva región -->
-    <a th:href="@{/regions/new}" class="btn btn-success mt-3" th:text="#{msg.region.add}"></a>
-    <!-- Volver a la página principal -->
-    <a href="#" th:href="@{/}" class="btn btn-secondary mt-3" th:text="#{msg.back}"></a>
+        <!-- Campos ocultos: id e imagen actual (para no perderla al editar sin subir otra) -->
+        <input type="hidden" th:field="*{id}"/>
+        <input type="hidden" th:field="*{image}"/>
+
+        <div class="mb-3">
+            <label for="code" class="form-label" th:text="#{msg.region-form.code}"></label>
+            <input type="text" id="code" th:field="*{code}" class="form-control"
+                   th:classappend="${#fields.hasErrors('code')} ? 'is-invalid'"/>
+            <div class="invalid-feedback" th:if="${#fields.hasErrors('code')}" th:errors="*{code}"></div>
+        </div>
+
+        <div class="mb-3">
+            <label for="name" class="form-label" th:text="#{msg.region-form.name}"></label>
+            <input type="text" id="name" th:field="*{name}" class="form-control"
+                   th:classappend="${#fields.hasErrors('name')} ? 'is-invalid'"/>
+            <div class="invalid-feedback" th:if="${#fields.hasErrors('name')}" th:errors="*{name}"></div>
+        </div>
+
+        <!-- Imagen actual, si existe -->
+        <div class="mb-3">
+            <img th:if="${region.image != null and !region.image.isEmpty()}"
+                 th:src="@{/uploads/{img}(img=${region.image})}" alt="" class="img-thumbnail"
+                 style="max-height: 150px;"/>
+            <p th:unless="${region.image != null and !region.image.isEmpty()}"
+               class="text-muted" th:text="#{msg.region.noImage}"></p>
+        </div>
+
+        <div class="mb-3">
+            <label for="imageFile" class="form-label" th:text="#{msg.region.image}"></label>
+            <input type="file" id="imageFile" name="imageFile" class="form-control" accept="image/*"/>
+        </div>
+
+        <button type="submit" class="btn btn-success"
+                th:text="${region.id == null} ? #{msg.region-form.create} : #{msg.region-form.update}"></button>
+        <a th:href="@{/regions}" class="btn btn-secondary" th:text="#{msg.region-form.returnback}"></a>
+    </form>
 </main>
 
 <!-- Incluir el fragmento del footer -->
